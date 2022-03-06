@@ -1,0 +1,8 @@
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\bin\Debug\TempSharpBlock.exe.config
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\bin\Debug\TempSharpBlock.exe
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\bin\Debug\TempSharpBlock.pdb
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\obj\Debug\TempSharpBlock.csproj.AssemblyReference.cache
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\obj\Debug\TempSharpBlock.csproj.SuggestedBindingRedirects.cache
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\obj\Debug\TempSharpBlock.csproj.CoreCompileInputs.cache
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\obj\Debug\TempSharpBlock.exe
+C:\Users\admin\source\repos\TempSharpBlock\TempSharpBlock\obj\Debug\TempSharpBlock.pdb
